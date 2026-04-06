@@ -241,18 +241,24 @@ def cmd_deploy_nodered(args):
         with open(flow_file) as f:
             new_nodes = json.load(f)
 
-        tab_ids = {n["id"] for n in new_nodes if n.get("type") == "tab"}
-        if not tab_ids:
-            print(f"  Skipping {flow_file.name} (no tab node found)")
+        # Find top-level container nodes (tabs and subflow definitions)
+        container_ids = {n["id"] for n in new_nodes if n.get("type") in ("tab", "subflow")}
+        if not container_ids:
+            print(f"  Skipping {flow_file.name} (no tab or subflow node found)")
             continue
 
-        # Remember position of existing tab (if any) to preserve ordering
+        # Remember position of existing container (if any) to preserve ordering
         tab_positions = {}
         for i, n in enumerate(flows):
-            if n.get("type") == "tab" and n.get("id") in tab_ids:
+            if n.get("id") in container_ids:
                 tab_positions[n["id"]] = i
 
-        flows = [n for n in flows if n.get("id") not in tab_ids and n.get("z") not in tab_ids]
+        # Remove old nodes belonging to these containers
+        # For subflows, child nodes have z == subflow_id; also remove subflow:ID instances
+        flows = [n for n in flows
+                 if n.get("id") not in container_ids
+                 and n.get("z") not in container_ids
+                 and not (n.get("type", "").startswith("subflow:") and n.get("type", "").split(":")[1] in container_ids)]
 
         # Inject HA server ID into any api-call-service nodes with empty server
         if ha_server_id:

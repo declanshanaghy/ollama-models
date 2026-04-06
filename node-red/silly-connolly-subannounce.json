@@ -1,0 +1,218 @@
+[
+    {
+        "id": "silly-connolly-subflow",
+        "type": "subflow",
+        "name": "Silly Connolly Announce",
+        "info": "Generate a quip and announce it on speakers in specified areas.\n\nInputs:\n- msg.prompt: Text describing what to quip about\n- msg.areas: Array of area names (empty = all areas)",
+        "category": "silly-connolly",
+        "in": [
+            {
+                "x": 60,
+                "y": 160,
+                "wires": [
+                    {
+                        "id": "sub-build-quip"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 1060,
+                "y": 280,
+                "wires": [
+                    {
+                        "id": "sub-debug-result",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#87CEEB",
+        "icon": "font-awesome/fa-microphone"
+    },
+    {
+        "id": "sub-build-quip",
+        "type": "function",
+        "z": "silly-connolly-subflow",
+        "name": "Build Quip Request",
+        "func": "msg._areas = msg.areas || [];\nmsg._prompt = msg.prompt || 'something funny';\n\nmsg.url = 'http://hal-9005.lan:11434/api/chat';\nmsg.headers = { 'Content-Type': 'application/json' };\n\nconst systemPrompt = `You are Silly Connolly, a comedy chatbot inspired by the legendary Scottish comedian Billy Connolly \u2014 the Big Yin himself.\n\nYour personality:\n- You are a working-class Glaswegian storyteller with a wicked, irreverent sense of humour\n- You tell jokes, stories, and observations rooted in Scottish culture, Glasgow life, and the absurdity of everyday human existence\n- You use Scottish words and phrases naturally: \"wee\", \"aye\", \"nae bother\", \"braw\", \"dinnae\", \"heid\", \"bampot\", \"eejit\", \"blether\", \"haver\", \"numpty\", \"wheesht\", \"ya beauty\", \"pure dead brilliant\"\n- You draw on Scottish cultural touchstones: Glasgow patter, shipyard humour, Scottish drinking culture, Irn-Bru, haggis, ceilidhs, the weather, fitba\n- You find the hilarious in the mundane \u2014 filtered through a distinctly Scottish, working-class lens\n- Profanity flows naturally as authentic working-class Scottish speech, not for shock value\n\nQUIPS AND TTS MODE:\n- ONE or TWO sentences max. That's it.\n- Output ONLY the quip text. Nothing else.\n- No quotation marks. No preamble. No follow-up. No stage directions.\n- No asterisks, no parentheses, no formatting of any kind.\n- No offering alternatives or options.\n- Just the raw spoken words, ready for text-to-speech.\n\nIMPORTANT: NEVER write in phonetic spelling or try to represent a Scottish accent. Use proper Scottish words and phrases in standard spelling.`;\n\nmsg.payload = {\n    model: 'gemma4:latest',\n    messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: 'Give me a quip about the ' + msg._prompt }\n    ],\n    stream: false,\n    options: { temperature: 0.9, top_p: 0.9 }\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 200,
+        "y": 160,
+        "wires": [
+            ["sub-ollama"]
+        ]
+    },
+    {
+        "id": "sub-ollama",
+        "type": "http request",
+        "z": "silly-connolly-subflow",
+        "name": "Ollama",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "x": 350,
+        "y": 160,
+        "wires": [
+            ["sub-debug-ollama", "sub-extract-quip"]
+        ]
+    },
+    {
+        "id": "sub-debug-ollama",
+        "type": "debug",
+        "z": "silly-connolly-subflow",
+        "name": "Debug: Ollama",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload.message.content",
+        "statusVal": "payload.message.content",
+        "statusType": "auto",
+        "x": 500,
+        "y": 110,
+        "wires": []
+    },
+    {
+        "id": "sub-extract-quip",
+        "type": "function",
+        "z": "silly-connolly-subflow",
+        "name": "Extract Quip",
+        "func": "if (!msg.payload || !msg.payload.message) {\n    node.error('Ollama error: ' + JSON.stringify(msg.payload).substring(0, 300), msg);\n    return null;\n}\nconst quip = msg.payload.message.content;\nnode.status({fill:'green', shape:'dot', text: quip.substring(0, 40)});\nmsg.quip = quip;\nreturn msg;",
+        "outputs": 1,
+        "x": 500,
+        "y": 160,
+        "wires": [
+            ["sub-build-tts"]
+        ]
+    },
+    {
+        "id": "sub-build-tts",
+        "type": "function",
+        "z": "silly-connolly-subflow",
+        "name": "Build TTS",
+        "func": "msg.url = 'https://api.fish.audio/v1/tts';\nmsg.headers = {\n    'Content-Type': 'application/json',\n    'Authorization': 'Bearer 9135dc4898034acfa4b2c84d238def2c',\n    'model': 's2-pro'\n};\nmsg.payload = {\n    text: msg.quip,\n    reference_id: '0d34211209014116ac7f82d4c4df035f',\n    format: 'mp3',\n    model: 's2-pro',\n    temperature: 0.7,\n    top_p: 0.7\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 650,
+        "y": 160,
+        "wires": [
+            ["sub-tts"]
+        ]
+    },
+    {
+        "id": "sub-tts",
+        "type": "http request",
+        "z": "silly-connolly-subflow",
+        "name": "Fish Audio",
+        "method": "POST",
+        "ret": "bin",
+        "paytoqs": "ignore",
+        "url": "",
+        "x": 780,
+        "y": 160,
+        "wires": [
+            ["sub-debug-tts", "sub-save"]
+        ]
+    },
+    {
+        "id": "sub-debug-tts",
+        "type": "debug",
+        "z": "silly-connolly-subflow",
+        "name": "Debug: TTS",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "statusVal": "payload.length",
+        "statusType": "auto",
+        "x": 930,
+        "y": 110,
+        "wires": []
+    },
+    {
+        "id": "sub-save",
+        "type": "file",
+        "z": "silly-connolly-subflow",
+        "name": "Save MP3",
+        "filename": "/homeassistant/www/tts/silly-connolly-quip.mp3",
+        "filenameType": "str",
+        "appendNewline": false,
+        "createDir": true,
+        "overwriteFile": "true",
+        "encoding": "none",
+        "x": 930,
+        "y": 160,
+        "wires": [
+            ["sub-resolve-areas"]
+        ]
+    },
+    {
+        "id": "sub-resolve-areas",
+        "type": "function",
+        "z": "silly-connolly-subflow",
+        "name": "Resolve Areas → Players",
+        "func": "const areas = msg._areas || [];\nconst mediaUrl = 'http://homeassistant.lan:8123/local/tts/silly-connolly-quip.mp3';\n\n// Resolve area names to media_player entity IDs using HA states\nconst ha = global.get('homeassistant');\nconst states = (ha && ha.homeAssistant && ha.homeAssistant.states) ? ha.homeAssistant.states : {};\n\n// Area name → entity mapping (from known HA config)\nconst areaMap = {\n    'living room': ['media_player.zigbee2mqtt'],\n    'family room': ['media_player.family_room_tv', 'media_player.family_room_pi', 'media_player.family_room_chromecast'],\n    'front entry': ['media_player.front_doorbell_speaker'],\n    'guest bedroom': ['media_player.google_hub_office'],\n    'office': ['media_player.octopi5']\n};\n\nlet players = [];\nif (areas.length === 0) {\n    // All areas - get all mapped players\n    for (const p of Object.values(areaMap)) players.push(...p);\n} else {\n    for (const area of areas) {\n        const mapped = areaMap[area.toLowerCase()];\n        if (mapped) {\n            players.push(...mapped);\n        } else {\n            node.warn('Unknown area: ' + area);\n        }\n    }\n}\n\n// Dedupe\nplayers = [...new Set(players)];\n\nif (players.length === 0) {\n    node.error('No media players found for: ' + areas.join(', '), msg);\n    node.status({fill:'red', shape:'dot', text: 'No players'});\n    return null;\n}\n\nconst label = areas.length === 0 ? 'ALL' : areas.join(', ');\nnode.status({fill:'green', shape:'dot', text: players.length + ' speakers in ' + label});\nnode.warn('Playing on: ' + players.join(', '));\n\n// Send one message per player\nconst messages = players.map(entityId => ({\n    payload: {\n        data: {\n            media_content_id: mediaUrl,\n            media_content_type: 'music',\n            entity_id: entityId\n        }\n    }\n}));\n\nreturn [messages];",
+        "outputs": 1,
+        "x": 220,
+        "y": 280,
+        "wires": [
+            ["sub-debug-players", "sub-ha-play"]
+        ]
+    },
+    {
+        "id": "sub-debug-players",
+        "type": "debug",
+        "z": "silly-connolly-subflow",
+        "name": "Debug: Announce",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "x": 430,
+        "y": 230,
+        "wires": []
+    },
+    {
+        "id": "sub-ha-play",
+        "type": "api-call-service",
+        "z": "silly-connolly-subflow",
+        "name": "Play Media",
+        "server": "625d9705.e710f8",
+        "version": 7,
+        "debugenabled": true,
+        "action": "media_player.play_media",
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"media_content_id\": payload.data.media_content_id, \"media_content_type\": payload.data.media_content_type, \"entity_id\": payload.data.entity_id}",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "x": 630,
+        "y": 280,
+        "wires": [
+            ["sub-debug-result"]
+        ]
+    },
+    {
+        "id": "sub-debug-result",
+        "type": "debug",
+        "z": "silly-connolly-subflow",
+        "name": "Debug: Result",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "x": 830,
+        "y": 280,
+        "wires": []
+    }
+]

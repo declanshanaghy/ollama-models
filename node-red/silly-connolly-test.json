@@ -1,0 +1,88 @@
+[
+    {
+        "id": "silly-connolly-test-flow",
+        "type": "tab",
+        "label": "Silly Connolly Test",
+        "disabled": false,
+        "info": "Test flow for the Silly Connolly Announce subflow."
+    },
+    {
+        "id": "test-inject",
+        "type": "inject",
+        "z": "silly-connolly-test-flow",
+        "name": "Test: Washing Machine",
+        "props": [
+            {
+                "p": "prompt",
+                "vt": "str",
+                "v": "washing machine is done"
+            },
+            {
+                "p": "areas",
+                "vt": "json",
+                "v": "[\"Living Room\"]"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 170,
+        "y": 80,
+        "wires": [
+            ["test-subflow-instance"]
+        ]
+    },
+    {
+        "id": "test-inject-multi",
+        "type": "inject",
+        "z": "silly-connolly-test-flow",
+        "name": "Test: Multi-Room",
+        "props": [
+            {
+                "p": "prompt",
+                "vt": "str",
+                "v": "dinner is ready"
+            },
+            {
+                "p": "areas",
+                "vt": "json",
+                "v": "[\"Living Room\", \"Family Room\", \"Kitchen\"]"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 160,
+        "y": 140,
+        "wires": [
+            ["test-subflow-instance"]
+        ]
+    },
+    {
+        "id": "test-subflow-instance",
+        "type": "subflow:silly-connolly-subflow",
+        "z": "silly-connolly-test-flow",
+        "name": "Silly Connolly",
+        "x": 420,
+        "y": 110,
+        "wires": [
+            ["test-debug"]
+        ]
+    },
+    {
+        "id": "test-debug",
+        "type": "debug",
+        "z": "silly-connolly-test-flow",
+        "name": "Test Output",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "x": 610,
+        "y": 110,
+        "wires": []
+    }
+]
