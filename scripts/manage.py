@@ -27,7 +27,7 @@ from urllib.error import HTTPError
 
 import yaml
 
-REPO_DIR = Path(__file__).resolve().parent
+REPO_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_URL = "http://hal-9005.lan:11080"
 ENV_FILE = REPO_DIR / ".env"
 
