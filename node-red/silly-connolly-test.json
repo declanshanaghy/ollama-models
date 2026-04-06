@@ -7,10 +7,10 @@
         "info": "Test flow for the Silly Connolly Announce subflow."
     },
     {
-        "id": "test-inject",
+        "id": "test-inject-living",
         "type": "inject",
         "z": "silly-connolly-test-flow",
-        "name": "Test: Washing Machine",
+        "name": "Living Room",
         "props": [
             {
                 "p": "prompt",
@@ -27,17 +27,17 @@
         "crontab": "",
         "once": false,
         "onceDelay": 0.1,
-        "x": 170,
-        "y": 80,
+        "x": 140,
+        "y": 60,
         "wires": [
             ["test-subflow-instance"]
         ]
     },
     {
-        "id": "test-inject-multi",
+        "id": "test-inject-family",
         "type": "inject",
         "z": "silly-connolly-test-flow",
-        "name": "Test: Multi-Room",
+        "name": "Family Room",
         "props": [
             {
                 "p": "prompt",
@@ -47,15 +47,91 @@
             {
                 "p": "areas",
                 "vt": "json",
-                "v": "[\"Living Room\", \"Family Room\", \"Kitchen\"]"
+                "v": "[\"Family Room\"]"
             }
         ],
         "repeat": "",
         "crontab": "",
         "once": false,
         "onceDelay": 0.1,
-        "x": 160,
-        "y": 140,
+        "x": 140,
+        "y": 110,
+        "wires": [
+            ["test-subflow-instance"]
+        ]
+    },
+    {
+        "id": "test-inject-both",
+        "type": "inject",
+        "z": "silly-connolly-test-flow",
+        "name": "Living + Family",
+        "props": [
+            {
+                "p": "prompt",
+                "vt": "str",
+                "v": "the dog needs to go outside"
+            },
+            {
+                "p": "areas",
+                "vt": "json",
+                "v": "[\"Living Room\", \"Family Room\"]"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 150,
+        "y": 160,
+        "wires": [
+            ["test-subflow-instance"]
+        ]
+    },
+    {
+        "id": "test-inject-office",
+        "type": "inject",
+        "z": "silly-connolly-test-flow",
+        "name": "Office",
+        "props": [
+            {
+                "p": "prompt",
+                "vt": "str",
+                "v": "stop working and take a break"
+            },
+            {
+                "p": "areas",
+                "vt": "json",
+                "v": "[\"Office\"]"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 120,
+        "y": 210,
+        "wires": [
+            ["test-subflow-instance"]
+        ]
+    },
+    {
+        "id": "test-inject-all",
+        "type": "inject",
+        "z": "silly-connolly-test-flow",
+        "name": "All Areas",
+        "props": [
+            {
+                "p": "prompt",
+                "vt": "str",
+                "v": "it's time for bed"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 130,
+        "y": 260,
         "wires": [
             ["test-subflow-instance"]
         ]
@@ -65,8 +141,8 @@
         "type": "subflow:silly-connolly-subflow",
         "z": "silly-connolly-test-flow",
         "name": "Silly Connolly",
-        "x": 420,
-        "y": 110,
+        "x": 380,
+        "y": 160,
         "wires": [
             ["test-debug"]
         ]
@@ -81,8 +157,8 @@
         "console": false,
         "tostatus": false,
         "complete": "true",
-        "x": 610,
-        "y": 110,
+        "x": 570,
+        "y": 160,
         "wires": []
     }
 ]
