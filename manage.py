@@ -254,11 +254,10 @@ def cmd_deploy_nodered(args):
                 tab_positions[n["id"]] = i
 
         # Remove old nodes belonging to these containers
-        # For subflows, child nodes have z == subflow_id; also remove subflow:ID instances
+        # Only remove nodes whose z (parent) is one of our managed containers
         flows = [n for n in flows
                  if n.get("id") not in container_ids
-                 and n.get("z") not in container_ids
-                 and not (n.get("type", "").startswith("subflow:") and n.get("type", "").split(":")[1] in container_ids)]
+                 and n.get("z") not in container_ids]
 
         # Inject HA server ID into any api-call-service nodes with empty server
         if ha_server_id:

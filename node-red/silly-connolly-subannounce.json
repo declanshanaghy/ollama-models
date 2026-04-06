@@ -29,7 +29,7 @@
             }
         ],
         "env": [],
-        "color": "#87CEEB",
+        "color": "#2E86C1",
         "icon": "font-awesome/fa-microphone"
     },
     {
@@ -42,7 +42,9 @@
         "x": 200,
         "y": 160,
         "wires": [
-            ["sub-ollama"]
+            [
+                "sub-ollama"
+            ]
         ]
     },
     {
@@ -57,7 +59,10 @@
         "x": 350,
         "y": 160,
         "wires": [
-            ["sub-debug-ollama", "sub-extract-quip"]
+            [
+                "sub-debug-ollama",
+                "sub-extract-quip"
+            ]
         ]
     },
     {
@@ -86,7 +91,9 @@
         "x": 500,
         "y": 160,
         "wires": [
-            ["sub-build-tts"]
+            [
+                "sub-build-tts"
+            ]
         ]
     },
     {
@@ -99,7 +106,9 @@
         "x": 650,
         "y": 160,
         "wires": [
-            ["sub-tts"]
+            [
+                "sub-tts"
+            ]
         ]
     },
     {
@@ -114,7 +123,10 @@
         "x": 780,
         "y": 160,
         "wires": [
-            ["sub-debug-tts", "sub-stash-tts"]
+            [
+                "sub-debug-tts",
+                "sub-stash-tts"
+            ]
         ]
     },
     {
@@ -127,7 +139,9 @@
         "x": 920,
         "y": 160,
         "wires": [
-            ["sub-read-silence"]
+            [
+                "sub-read-silence"
+            ]
         ]
     },
     {
@@ -145,7 +159,9 @@
         "x": 170,
         "y": 220,
         "wires": [
-            ["sub-concat"]
+            [
+                "sub-concat"
+            ]
         ]
     },
     {
@@ -158,7 +174,9 @@
         "x": 340,
         "y": 220,
         "wires": [
-            ["sub-save"]
+            [
+                "sub-save"
+            ]
         ]
     },
     {
@@ -191,20 +209,25 @@
         "x": 930,
         "y": 160,
         "wires": [
-            ["sub-resolve-areas"]
+            [
+                "sub-resolve-areas"
+            ]
         ]
     },
     {
         "id": "sub-resolve-areas",
         "type": "function",
         "z": "silly-connolly-subflow",
-        "name": "Resolve Areas → Players",
-        "func": "const areas = msg._areas || [];\nconst mediaUrl = 'http://homeassistant.lan:8123/local/tts/silly-connolly-quip.mp3';\n\n// Resolve area names to media_player entity IDs using HA states\nconst ha = global.get('homeassistant');\nconst states = (ha && ha.homeAssistant && ha.homeAssistant.states) ? ha.homeAssistant.states : {};\n\n// Area name → entity mapping (from known HA config)\nconst areaMap = {\n    'living room': ['media_player.zigbee2mqtt'],\n    'family room': ['media_player.family_room_tv', 'media_player.family_room_pi', 'media_player.family_room_chromecast'],\n    'front entry': ['media_player.front_doorbell_speaker'],\n    'guest bedroom': ['media_player.google_hub_office'],\n    'office': ['media_player.octopi5']\n};\n\nlet players = [];\nif (areas.length === 0) {\n    // All areas - get all mapped players\n    for (const p of Object.values(areaMap)) players.push(...p);\n} else {\n    for (const area of areas) {\n        const mapped = areaMap[area.toLowerCase()];\n        if (mapped) {\n            players.push(...mapped);\n        } else {\n            node.warn('Unknown area: ' + area);\n        }\n    }\n}\n\n// Dedupe\nplayers = [...new Set(players)];\n\nif (players.length === 0) {\n    node.error('No media players found for: ' + areas.join(', '), msg);\n    node.status({fill:'red', shape:'dot', text: 'No players'});\n    return null;\n}\n\nconst label = areas.length === 0 ? 'ALL' : areas.join(', ');\nnode.status({fill:'green', shape:'dot', text: players.length + ' speakers in ' + label});\nnode.warn('Playing on: ' + players.join(', '));\n\n// Send one message per player\nconst messages = players.map(entityId => ({\n    payload: {\n        data: {\n            media_content_id: mediaUrl,\n            media_content_type: 'music',\n            entity_id: entityId\n        }\n    }\n}));\n\nreturn [messages];",
+        "name": "Resolve Areas \u2192 Players",
+        "func": "const rawAreas = msg._areas || [];\nconst mediaUrl = 'http://homeassistant.lan:8123/local/tts/silly-connolly-quip.mp3';\n\n// Filter out x-prefixed areas (disabled for testing)\nconst areas = rawAreas.filter(a => !a.startsWith('x'));\n\n// Area name \u2192 entity mapping\nconst areaMap = {\n    'living room': ['media_player.zigbee2mqtt'],\n    'family room': ['media_player.family_room_tv', 'media_player.family_room_pi', 'media_player.family_room_chromecast'],\n    'front entry': ['media_player.front_doorbell_speaker'],\n    'guest bedroom': ['media_player.google_hub_office'],\n    'office': ['media_player.octopi5']\n};\n\nlet players = [];\nif (areas.length === 0 && rawAreas.length === 0) {\n    // No areas at all - announce on all\n    for (const p of Object.values(areaMap)) players.push(...p);\n} else {\n    for (const area of areas) {\n        const mapped = areaMap[area.toLowerCase()];\n        if (mapped) {\n            players.push(...mapped);\n        } else {\n            node.warn('Unknown area: ' + area);\n        }\n    }\n}\n\nplayers = [...new Set(players)];\n\nif (players.length === 0) {\n    node.error('No media players found for: ' + areas.join(', '), msg);\n    node.status({fill:'red', shape:'dot', text: 'No players'});\n    return null;\n}\n\nconst label = (areas.length === 0 && rawAreas.length === 0) ? 'ALL' : areas.join(', ');\nnode.status({fill:'green', shape:'dot', text: players.length + ' speakers in ' + label});\nnode.warn('Playing on: ' + players.join(', '));\n\nconst messages = players.map(entityId => ({\n    payload: {\n        data: {\n            media_content_id: mediaUrl,\n            media_content_type: 'music',\n            entity_id: entityId\n        }\n    }\n}));\n\nreturn [messages];",
         "outputs": 1,
         "x": 220,
         "y": 280,
         "wires": [
-            ["sub-debug-players", "sub-ha-play"]
+            [
+                "sub-debug-players",
+                "sub-ha-play"
+            ]
         ]
     },
     {
@@ -242,7 +265,9 @@
         "x": 630,
         "y": 280,
         "wires": [
-            ["sub-debug-result"]
+            [
+                "sub-debug-result"
+            ]
         ]
     },
     {

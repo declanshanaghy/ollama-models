@@ -30,7 +30,9 @@
         "x": 140,
         "y": 60,
         "wires": [
-            ["test-subflow-instance"]
+            [
+                "test-subflow-instance"
+            ]
         ]
     },
     {
@@ -57,7 +59,9 @@
         "x": 140,
         "y": 110,
         "wires": [
-            ["test-subflow-instance"]
+            [
+                "test-subflow-instance"
+            ]
         ]
     },
     {
@@ -84,7 +88,9 @@
         "x": 150,
         "y": 160,
         "wires": [
-            ["test-subflow-instance"]
+            [
+                "test-subflow-instance"
+            ]
         ]
     },
     {
@@ -111,7 +117,9 @@
         "x": 120,
         "y": 210,
         "wires": [
-            ["test-subflow-instance"]
+            [
+                "test-subflow-instance"
+            ]
         ]
     },
     {
@@ -133,7 +141,9 @@
         "x": 130,
         "y": 260,
         "wires": [
-            ["test-subflow-instance"]
+            [
+                "test-subflow-instance"
+            ]
         ]
     },
     {
@@ -144,7 +154,9 @@
         "x": 380,
         "y": 160,
         "wires": [
-            ["test-debug"]
+            [
+                "test-debug"
+            ]
         ]
     },
     {
