@@ -114,18 +114,49 @@
         "x": 780,
         "y": 160,
         "wires": [
-            ["sub-debug-tts", "sub-pad-silence"]
+            ["sub-debug-tts", "sub-stash-tts"]
         ]
     },
     {
-        "id": "sub-pad-silence",
+        "id": "sub-stash-tts",
         "type": "function",
         "z": "silly-connolly-subflow",
-        "name": "Pad 1s Silence",
-        "func": "// Generate ~1 second of silent MP3 frames and append to audio\n// A silent MP3 frame (MPEG1 Layer3 128kbps 44100Hz stereo) is 417 bytes\n// We need about 38 frames for 1 second\nconst silentFrame = Buffer.from(\n    'fffb9004000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '00000000000000000000000000000000000000000000000000000000000000000000000000' +\n    '000000000000000000000000', 'hex'\n);\n\n// Create ~1.5 seconds of silence (40 frames)\nconst silenceBuffers = [];\nfor (let i = 0; i < 40; i++) {\n    silenceBuffers.push(silentFrame);\n}\nconst silence = Buffer.concat(silenceBuffers);\n\n// Append silence to the TTS audio\nmsg.payload = Buffer.concat([msg.payload, silence]);\nnode.status({fill:'green', shape:'dot', text: 'padded +' + silence.length + ' bytes'});\nreturn msg;",
+        "name": "Stash TTS Audio",
+        "func": "msg._ttsAudio = msg.payload;\nmsg.filename = '/homeassistant/www/tts/silence-2s.mp3';\nreturn msg;",
         "outputs": 1,
         "x": 920,
         "y": 160,
+        "wires": [
+            ["sub-read-silence"]
+        ]
+    },
+    {
+        "id": "sub-read-silence",
+        "type": "file in",
+        "z": "silly-connolly-subflow",
+        "name": "Read Silence",
+        "filename": "/homeassistant/www/tts/silence-2s.mp3",
+        "filenameType": "str",
+        "format": "",
+        "chunk": false,
+        "sendError": false,
+        "encoding": "none",
+        "allProps": false,
+        "x": 170,
+        "y": 220,
+        "wires": [
+            ["sub-concat"]
+        ]
+    },
+    {
+        "id": "sub-concat",
+        "type": "function",
+        "z": "silly-connolly-subflow",
+        "name": "Concat Audio",
+        "func": "msg.payload = Buffer.concat([msg._ttsAudio, msg.payload]);\ndelete msg._ttsAudio;\nnode.status({fill:'green', shape:'dot', text: msg.payload.length + ' bytes total'});\nreturn msg;",
+        "outputs": 1,
+        "x": 340,
+        "y": 220,
         "wires": [
             ["sub-save"]
         ]
