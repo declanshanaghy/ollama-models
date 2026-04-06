@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Manage custom models in Open WebUI.
 
-Reads model definitions from <model-dir>/model.yaml files and syncs them
-to an Open WebUI instance via its API.
+Reads model definitions from <model-dir>/Modelfile files and syncs them
+to an Open WebUI instance via its API. Tracks a SHA256 hash of each
+Modelfile in Open WebUI metadata to detect when models are out of date.
 
 Usage:
+    ./manage.py status                # show sync status
     ./manage.py sync                  # sync all models
     ./manage.py sync silly-connolly   # sync one model
     ./manage.py list                  # list remote models
@@ -18,14 +20,14 @@ Environment:
 """
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
-
-import yaml
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_URL = "http://hal-9005.lan:11080"
@@ -87,21 +89,73 @@ def list_remote_models(cfg, token):
     return resp.get("items", resp) if isinstance(resp, dict) else resp
 
 
+def parse_modelfile(path):
+    """Parse a Modelfile into a structured dict."""
+    content = path.read_text()
+
+    from_match = re.search(r'^FROM\s+(.+)$', content, re.MULTILINE)
+    base_model_id = from_match.group(1).strip() if from_match else None
+
+    params = {}
+    for m in re.finditer(r'^PARAMETER\s+(\S+)\s+(.+)$', content, re.MULTILINE):
+        key, val = m.group(1), m.group(2).strip()
+        try:
+            val = int(val)
+        except ValueError:
+            try:
+                val = float(val)
+            except ValueError:
+                pass
+        params[key] = val
+
+    sys_match = re.search(r'SYSTEM\s+"""(.*?)"""', content, re.DOTALL)
+    system = sys_match.group(1).strip() if sys_match else ""
+
+    return {
+        "base_model_id": base_model_id,
+        "params": params,
+        "system": system,
+        "modelfile_hash": hashlib.sha256(content.encode()).hexdigest(),
+    }
+
+
 def discover_models():
-    """Find all model.yaml files in subdirectories."""
+    """Find all model directories (must contain a Modelfile)."""
     models = []
-    for yaml_path in sorted(REPO_DIR.glob("*/model.yaml")):
-        with open(yaml_path) as f:
-            model = yaml.safe_load(f)
-        model["_dir"] = yaml_path.parent.name
-        models.append(model)
+    for modelfile_path in sorted(REPO_DIR.glob("*/Modelfile")):
+        model_dir = modelfile_path.parent
+        dir_name = model_dir.name
+
+        parsed = parse_modelfile(modelfile_path)
+
+        # Load Open WebUI metadata from model.json if present
+        meta_file = model_dir / "model.json"
+        meta = json.loads(meta_file.read_text()) if meta_file.exists() else {}
+
+        models.append({
+            "_dir": dir_name,
+            "id": dir_name,
+            "name": meta.get("name", dir_name.replace("-", " ").title()),
+            "base_model_id": parsed["base_model_id"],
+            "params": parsed["params"],
+            "system": parsed["system"],
+            "meta": {
+                "description": meta.get("description", ""),
+                "tags": meta.get("tags", []),
+            },
+            "modelfile_hash": parsed["modelfile_hash"],
+        })
     return models
 
 
 def build_payload(model):
-    """Convert a model.yaml dict into the Open WebUI ModelForm payload."""
+    """Convert parsed Modelfile dict into the Open WebUI ModelForm payload."""
     tags = model.get("meta", {}).get("tags", [])
     tag_objects = [{"name": t} if isinstance(t, str) else t for t in tags]
+
+    params = dict(model.get("params", {}))
+    if model.get("system"):
+        params["system"] = model["system"]
 
     return {
         "id": model["id"],
@@ -111,9 +165,10 @@ def build_payload(model):
             "description": model.get("meta", {}).get("description", ""),
             "profile_image_url": model.get("meta", {}).get("profile_image_url", ""),
             "tags": tag_objects,
+            "modelfile_hash": model.get("modelfile_hash", ""),
         },
-        "params": model.get("params", {}),
-        "is_active": model.get("is_active", True),
+        "params": params,
+        "is_active": True,
     }
 
 
@@ -194,6 +249,27 @@ def cmd_chat(args):
     token = authenticate(cfg)
     message = " ".join(args.message) if args.message else "Tell me a joke"
     chat_test(cfg, token, args.model, message)
+
+
+def cmd_status(args):
+    cfg = get_config()
+    token = authenticate(cfg)
+    local_models = discover_models()
+    remote_models = list_remote_models(cfg, token)
+    remote_by_id = {m["id"]: m for m in remote_models}
+
+    print(f"{'ID':<30} {'Status':<15} {'Local':<10} {'Remote':<10}")
+    print("-" * 70)
+    for model in local_models:
+        mid = model["id"]
+        local_hash = model["modelfile_hash"][:8]
+        remote = remote_by_id.get(mid)
+        if not remote:
+            print(f"{mid:<30} {'MISSING':<15} {local_hash:<10} {'-':<10}")
+        else:
+            remote_hash = (remote.get("meta", {}).get("modelfile_hash", "") or "")[:8]
+            status = "UP TO DATE" if remote_hash == local_hash else "OUT OF DATE"
+            print(f"{mid:<30} {status:<15} {local_hash:<10} {remote_hash or '-':<10}")
 
 
 def get_nodered_config():
@@ -296,6 +372,7 @@ def main():
     p_chat.add_argument("model", help="Model ID")
     p_chat.add_argument("message", nargs="*", help="Message (default: 'Tell me a joke')")
 
+    sub.add_parser("status", help="Show sync status of local models vs remote")
     sub.add_parser("deploy-nodered", help="Deploy Node-RED flows")
 
     args = parser.parse_args()
@@ -305,7 +382,8 @@ def main():
 
     load_env()
 
-    {"sync": cmd_sync, "list": cmd_list, "delete": cmd_delete, "chat": cmd_chat, "deploy-nodered": cmd_deploy_nodered}[args.command](args)
+    {"sync": cmd_sync, "list": cmd_list, "delete": cmd_delete, "chat": cmd_chat,
+     "status": cmd_status, "deploy-nodered": cmd_deploy_nodered}[args.command](args)
 
 
 if __name__ == "__main__":
