@@ -4,36 +4,7 @@
         "type": "tab",
         "label": "Silly Connolly Announce",
         "disabled": false,
-        "info": "Generate a quip via Ollama, convert to speech with Fish Audio, announce on speaker.\n\nConfigure flow variables in the Config node before use."
-    },
-    {
-        "id": "config-node",
-        "type": "function",
-        "z": "silly-connolly-flow",
-        "name": "Config (edit me)",
-        "func": "// ===== CONFIGURE THESE VALUES =====\nflow.set('FISH_AUDIO_API_KEY', '9135dc4898034acfa4b2c84d238def2c');\nflow.set('FISH_AUDIO_VOICE_ID', '0d34211209014116ac7f82d4c4df035f');\nflow.set('OLLAMA_URL', 'http://hal-9005.lan:11434');\nflow.set('MEDIA_PLAYER', 'media_player.zigbee2mqtt');\n// ===================================\nnode.warn('Config loaded');\nreturn msg;",
-        "outputs": 1,
-        "x": 150,
-        "y": 40,
-        "wires": [
-            []
-        ]
-    },
-    {
-        "id": "config-trigger",
-        "type": "inject",
-        "z": "silly-connolly-flow",
-        "name": "Load Config (run once)",
-        "props": [],
-        "repeat": "",
-        "crontab": "",
-        "once": true,
-        "onceDelay": 0.1,
-        "x": 170,
-        "y": 40,
-        "wires": [
-            ["config-node"]
-        ]
+        "info": "Generate a quip via Ollama, convert to speech with Fish Audio, announce on speaker.\nSaves MP3 to /share/tts/ (shared between HA addons), serves via HA /media/"
     },
     {
         "id": "inject-trigger",
@@ -52,7 +23,7 @@
         "once": false,
         "onceDelay": 0.1,
         "x": 130,
-        "y": 120,
+        "y": 100,
         "wires": [
             ["build-quip-request"]
         ]
@@ -62,10 +33,10 @@
         "type": "function",
         "z": "silly-connolly-flow",
         "name": "Build Quip Request",
-        "func": "const ollamaUrl = flow.get('OLLAMA_URL') || 'http://hal-9005.lan:11434';\nmsg.url = ollamaUrl + '/api/chat';\nmsg.headers = { 'Content-Type': 'application/json' };\n\nconst systemPrompt = `You are Silly Connolly, a comedy chatbot inspired by the legendary Scottish comedian Billy Connolly — the Big Yin himself.\n\nYour personality:\n- You are a working-class Glaswegian storyteller with a wicked, irreverent sense of humour\n- You tell jokes, stories, and observations rooted in Scottish culture, Glasgow life, and the absurdity of everyday human existence\n- You use Scottish words and phrases naturally: \"wee\", \"aye\", \"nae bother\", \"braw\", \"dinnae\", \"heid\", \"bampot\", \"eejit\", \"blether\", \"haver\", \"numpty\", \"wheesht\", \"ya beauty\", \"pure dead brilliant\"\n- You draw on Scottish cultural touchstones: Glasgow patter, shipyard humour, Scottish drinking culture, Irn-Bru, haggis, ceilidhs, the weather, fitba\n- You find the hilarious in the mundane — filtered through a distinctly Scottish, working-class lens\n- Profanity flows naturally as authentic working-class Scottish speech, not for shock value\n\nQUIPS AND TTS MODE:\n- ONE or TWO sentences max. That's it.\n- Output ONLY the quip text. Nothing else.\n- No quotation marks. No preamble. No follow-up. No stage directions.\n- No asterisks, no parentheses, no formatting of any kind.\n- No offering alternatives or options.\n- Just the raw spoken words, ready for text-to-speech.\n\nIMPORTANT: NEVER write in phonetic spelling or try to represent a Scottish accent. Use proper Scottish words and phrases in standard spelling.`;\n\nmsg.payload = {\n    model: 'gemma4:latest',\n    messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: 'Give me a quip about the ' + msg.topic }\n    ],\n    stream: false,\n    options: { temperature: 0.9, top_p: 0.9 }\n};\nreturn msg;",
+        "func": "msg.url = 'http://hal-9005.lan:11434/api/chat';\nmsg.headers = { 'Content-Type': 'application/json' };\n\nconst systemPrompt = `You are Silly Connolly, a comedy chatbot inspired by the legendary Scottish comedian Billy Connolly \u2014 the Big Yin himself.\n\nYour personality:\n- You are a working-class Glaswegian storyteller with a wicked, irreverent sense of humour\n- You tell jokes, stories, and observations rooted in Scottish culture, Glasgow life, and the absurdity of everyday human existence\n- You use Scottish words and phrases naturally: \"wee\", \"aye\", \"nae bother\", \"braw\", \"dinnae\", \"heid\", \"bampot\", \"eejit\", \"blether\", \"haver\", \"numpty\", \"wheesht\", \"ya beauty\", \"pure dead brilliant\"\n- You draw on Scottish cultural touchstones: Glasgow patter, shipyard humour, Scottish drinking culture, Irn-Bru, haggis, ceilidhs, the weather, fitba\n- You find the hilarious in the mundane \u2014 filtered through a distinctly Scottish, working-class lens\n- Profanity flows naturally as authentic working-class Scottish speech, not for shock value\n\nQUIPS AND TTS MODE:\n- ONE or TWO sentences max. That's it.\n- Output ONLY the quip text. Nothing else.\n- No quotation marks. No preamble. No follow-up. No stage directions.\n- No asterisks, no parentheses, no formatting of any kind.\n- No offering alternatives or options.\n- Just the raw spoken words, ready for text-to-speech.\n\nIMPORTANT: NEVER write in phonetic spelling or try to represent a Scottish accent. Use proper Scottish words and phrases in standard spelling.`;\n\nmsg.payload = {\n    model: 'gemma4:latest',\n    messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: 'Give me a quip about the ' + msg.topic }\n    ],\n    stream: false,\n    options: { temperature: 0.9, top_p: 0.9 }\n};\nreturn msg;",
         "outputs": 1,
         "x": 340,
-        "y": 120,
+        "y": 100,
         "wires": [
             ["ollama-request"]
         ]
@@ -80,7 +51,7 @@
         "paytoqs": "ignore",
         "url": "",
         "x": 560,
-        "y": 120,
+        "y": 100,
         "wires": [
             ["debug-ollama", "extract-quip"]
         ]
@@ -94,11 +65,11 @@
         "tosidebar": true,
         "console": false,
         "tostatus": true,
+        "complete": "payload",
         "statusVal": "payload.message.content",
         "statusType": "auto",
-        "complete": "payload",
         "x": 770,
-        "y": 70,
+        "y": 50,
         "wires": []
     },
     {
@@ -109,7 +80,7 @@
         "func": "if (!msg.payload || !msg.payload.message) {\n    node.error('No message in Ollama response: ' + JSON.stringify(msg.payload).substring(0, 300), msg);\n    return null;\n}\nconst quip = msg.payload.message.content;\nnode.status({fill:'green', shape:'dot', text: quip.substring(0, 40)});\nmsg.quip = quip;\nreturn msg;",
         "outputs": 1,
         "x": 770,
-        "y": 120,
+        "y": 100,
         "wires": [
             ["build-tts-request"]
         ]
@@ -119,10 +90,10 @@
         "type": "function",
         "z": "silly-connolly-flow",
         "name": "Build Fish Audio TTS",
-        "func": "const apiKey = flow.get('FISH_AUDIO_API_KEY');\nconst voiceId = flow.get('FISH_AUDIO_VOICE_ID');\nif (!apiKey || !voiceId) {\n    node.error('FISH_AUDIO_API_KEY or FISH_AUDIO_VOICE_ID not set. Run Config node first.', msg);\n    return null;\n}\nmsg.url = 'https://api.fish.audio/v1/tts';\nmsg.headers = {\n    'Content-Type': 'application/json',\n    'Authorization': 'Bearer ' + apiKey,\n    'model': 's2-pro'\n};\nmsg.payload = {\n    text: msg.quip,\n    reference_id: voiceId,\n    format: 'mp3',\n    model: 's2-pro',\n    temperature: 0.7,\n    top_p: 0.7\n};\nreturn msg;",
+        "func": "msg.url = 'https://api.fish.audio/v1/tts';\nmsg.headers = {\n    'Content-Type': 'application/json',\n    'Authorization': 'Bearer 9135dc4898034acfa4b2c84d238def2c',\n    'model': 's2-pro'\n};\nmsg.payload = {\n    text: msg.quip,\n    reference_id: '0d34211209014116ac7f82d4c4df035f',\n    format: 'mp3',\n    model: 's2-pro',\n    temperature: 0.7,\n    top_p: 0.7\n};\nreturn msg;",
         "outputs": 1,
         "x": 170,
-        "y": 240,
+        "y": 220,
         "wires": [
             ["tts-request"]
         ]
@@ -137,7 +108,7 @@
         "paytoqs": "ignore",
         "url": "",
         "x": 380,
-        "y": 240,
+        "y": 220,
         "wires": [
             ["debug-tts", "save-audio"]
         ]
@@ -151,11 +122,11 @@
         "tosidebar": true,
         "console": false,
         "tostatus": true,
+        "complete": "true",
         "statusVal": "payload.length",
         "statusType": "auto",
-        "complete": "true",
         "x": 580,
-        "y": 190,
+        "y": 170,
         "wires": []
     },
     {
@@ -163,14 +134,14 @@
         "type": "file",
         "z": "silly-connolly-flow",
         "name": "Save MP3",
-        "filename": "/config/www/tts/silly-connolly-quip.mp3",
+        "filename": "/homeassistant/www/tts/silly-connolly-quip.mp3",
         "filenameType": "str",
         "appendNewline": false,
         "createDir": true,
         "overwriteFile": "true",
         "encoding": "none",
-        "x": 580,
-        "y": 240,
+        "x": 600,
+        "y": 220,
         "wires": [
             ["announce"]
         ]
@@ -180,35 +151,50 @@
         "type": "function",
         "z": "silly-connolly-flow",
         "name": "Build Announce",
-        "func": "const entity = flow.get('MEDIA_PLAYER') || 'media_player.zigbee2mqtt';\nmsg.payload = {\n    domain: 'media_player',\n    service: 'play_media',\n    target: { entity_id: entity },\n    data: {\n        media_content_id: '/local/tts/silly-connolly-quip.mp3',\n        media_content_type: 'audio/mpeg'\n    }\n};\nnode.status({fill:'blue', shape:'dot', text: entity});\nreturn msg;",
+        "func": "const mediaUrl = 'http://homeassistant.lan:8123/local/tts/silly-connolly-quip.mp3';\nmsg.payload = {\n    data: {\n        media_content_id: mediaUrl,\n        media_content_type: 'music'\n    }\n};\nnode.status({fill:'blue', shape:'dot', text: mediaUrl});\nreturn msg;",
         "outputs": 1,
-        "x": 770,
-        "y": 240,
+        "x": 810,
+        "y": 220,
         "wires": [
-            ["ha-call-service"]
+            ["debug-announce-payload", "ha-call-service"]
         ]
+    },
+    {
+        "id": "debug-announce-payload",
+        "type": "debug",
+        "z": "silly-connolly-flow",
+        "name": "Debug: Announce Payload",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "statusVal": "payload.data.media_content_id",
+        "statusType": "auto",
+        "x": 1020,
+        "y": 170,
+        "wires": []
     },
     {
         "id": "ha-call-service",
         "type": "api-call-service",
         "z": "silly-connolly-flow",
         "name": "Play on Speaker",
-        "server": "",
-        "version": 5,
+        "server": "625d9705.e710f8",
+        "version": 7,
         "debugenabled": true,
-        "domain": "media_player",
-        "service": "play_media",
+        "action": "media_player.play_media",
         "areaId": [],
         "deviceId": [],
-        "entityId": [],
-        "data": "",
+        "entityId": ["media_player.zigbee2mqtt"],
+        "data": "{\"media_content_id\": payload.data.media_content_id, \"media_content_type\": payload.data.media_content_type}",
         "dataType": "jsonata",
         "mergeContext": "",
         "mustacheAltTags": false,
         "outputProperties": [],
         "queue": "none",
-        "x": 960,
-        "y": 240,
+        "x": 1000,
+        "y": 220,
         "wires": [
             ["debug-announce"]
         ]
@@ -223,8 +209,8 @@
         "console": false,
         "tostatus": false,
         "complete": "true",
-        "x": 1170,
-        "y": 240,
+        "x": 1210,
+        "y": 220,
         "wires": []
     }
 ]

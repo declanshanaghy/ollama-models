@@ -29,6 +29,16 @@ import yaml
 
 REPO_DIR = Path(__file__).resolve().parent
 DEFAULT_URL = "http://hal-9005.lan:11080"
+ENV_FILE = REPO_DIR / ".env"
+
+
+def load_env():
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
 
 
 def get_config():
@@ -186,6 +196,85 @@ def cmd_chat(args):
     chat_test(cfg, token, args.model, message)
 
 
+def get_nodered_config():
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return {
+        "url": os.environ.get("NODERED_URL", "https://harry-os-2405:1880").rstrip("/"),
+        "ssl_context": ctx,
+    }
+
+
+def nodered_api(cfg, method, path, data=None):
+    url = f"{cfg['url']}{path}"
+    body = json.dumps(data).encode() if data else None
+    headers = {
+        "Content-Type": "application/json",
+        "Node-RED-API-Version": "v2",
+    }
+    req = Request(url, data=body, headers=headers, method=method)
+    try:
+        with urlopen(req, context=cfg["ssl_context"]) as resp:
+            return json.loads(resp.read())
+    except HTTPError as e:
+        err_body = e.read().decode()
+        print(f"  Node-RED API error {e.code}: {err_body}", file=sys.stderr)
+        raise
+
+
+def cmd_deploy_nodered(args):
+    cfg = get_nodered_config()
+    ha_server_id = os.environ.get("NODERED_HA_SERVER_ID", "")
+    flow_files = sorted(REPO_DIR.glob("node-red/*.json"))
+    if not flow_files:
+        print("No flow files found in node-red/", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Fetching current flows from {cfg['url']}")
+    current = nodered_api(cfg, "GET", "/flows")
+    rev = current["rev"]
+    flows = current["flows"]
+
+    for flow_file in flow_files:
+        with open(flow_file) as f:
+            new_nodes = json.load(f)
+
+        tab_ids = {n["id"] for n in new_nodes if n.get("type") == "tab"}
+        if not tab_ids:
+            print(f"  Skipping {flow_file.name} (no tab node found)")
+            continue
+
+        # Remember position of existing tab (if any) to preserve ordering
+        tab_positions = {}
+        for i, n in enumerate(flows):
+            if n.get("type") == "tab" and n.get("id") in tab_ids:
+                tab_positions[n["id"]] = i
+
+        flows = [n for n in flows if n.get("id") not in tab_ids and n.get("z") not in tab_ids]
+
+        # Inject HA server ID into any api-call-service nodes with empty server
+        if ha_server_id:
+            for node in new_nodes:
+                if node.get("type") == "api-call-service" and not node.get("server"):
+                    node["server"] = ha_server_id
+
+        # Re-insert at original position to preserve flow order
+        if tab_positions:
+            insert_at = min(tab_positions.values())
+            for node in reversed(new_nodes):
+                flows.insert(insert_at, node)
+        else:
+            # New flow — prepend (put our flows first)
+            flows = new_nodes + flows
+
+        print(f"  Merged: {flow_file.name} ({len(new_nodes)} nodes, position {insert_at if tab_positions else 0})")
+
+    result = nodered_api(cfg, "POST", "/flows", {"rev": rev, "flows": flows})
+    print(f"Deployed! Rev: {result.get('rev', 'ok')}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Manage Open WebUI custom models")
     sub = parser.add_subparsers(dest="command")
@@ -202,12 +291,16 @@ def main():
     p_chat.add_argument("model", help="Model ID")
     p_chat.add_argument("message", nargs="*", help="Message (default: 'Tell me a joke')")
 
+    sub.add_parser("deploy-nodered", help="Deploy Node-RED flows")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         sys.exit(1)
 
-    {"sync": cmd_sync, "list": cmd_list, "delete": cmd_delete, "chat": cmd_chat}[args.command](args)
+    load_env()
+
+    {"sync": cmd_sync, "list": cmd_list, "delete": cmd_delete, "chat": cmd_chat, "deploy-nodered": cmd_deploy_nodered}[args.command](args)
 
 
 if __name__ == "__main__":
