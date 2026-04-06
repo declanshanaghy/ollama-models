@@ -23,11 +23,16 @@ Models are defined in `<model-dir>/model.yaml` and synced to Open WebUI via the 
 
 See [docs/silly-connolly-architecture.md](docs/silly-connolly-architecture.md) for the full pipeline architecture.
 
-```
-[Trigger] --> [Ollama/gemma4] --> [Fish Audio TTS] --> [MP3 + silence] --> [HA media_player]
-                  |                     |                                        |
-           silly-connolly         Cloned voice                          zigbee2mqtt, octopi5,
-           system prompt          from samples                          family-room-pi, etc.
+```mermaid
+graph LR
+    A[Trigger] --> B[Ollama/gemma4]
+    B --> C[Fish Audio TTS]
+    C --> D[MP3 + silence]
+    D --> E[HA media_player]
+
+    B -.- B1[silly-connolly<br/>system prompt]
+    C -.- C1[Cloned voice<br/>from samples]
+    E -.- E1[zigbee2mqtt, octopi5,<br/>family-room-pi, etc.]
 ```
 
 ## Quick Start
@@ -101,34 +106,3 @@ Stored in `.env` (gitignored):
 | `NODERED_URL` | Node-RED API URL |
 | `NODERED_HA_SERVER_ID` | HA server config node ID in Node-RED |
 
-## Repo Structure
-
-```
-ollama-models/
-├── README.md
-├── .env                              # API keys (gitignored)
-├── .gitignore
-├── docs/                             # Documentation
-│   ├── README.md
-│   ├── silly-connolly-architecture.md
-│   ├── node-red-flows.md
-│   ├── scripts.md
-│   ├── voice-cloning.md
-│   └── infrastructure.md
-├── scripts/
-│   ├── manage.py                     # Model + flow management CLI
-│   ├── silly-connolly-tts.py         # Local TTS testing
-│   └── replace-chatbot.py           # ChatBot → Silly Connolly migration
-├── node-red/
-│   ├── silly-connolly-announce.json  # Standalone announce flow
-│   ├── silly-connolly-subannounce.json # Reusable subflow
-│   └── silly-connolly-test.json      # Test flow
-└── silly-connolly/
-    ├── model.yaml                    # Open WebUI model definition
-    ├── Modelfile                     # Ollama Modelfile reference
-    └── voice-samples/               # Billy Connolly voice clips
-        ├── raw/                      # Original MP3s from Archive.org
-        ├── sample-*.wav              # Processed 2-min clips (24kHz/16-bit/mono)
-        ├── silly-connolly-90s.mp3    # 90s clip for Fish Audio upload
-        └── silly-connolly-combined*.mp3 # Combined clips
-```
