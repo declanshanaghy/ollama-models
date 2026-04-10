@@ -1,10 +1,10 @@
 # Node-RED Flows
 
-All flows are stored in `node-red/` and deployed via `python3 scripts/manage.py deploy-nodered`.
+All flows are stored in `silly-connolly/` and deployed via `python3 scripts/manage.py deploy-nodered`.
 
 ## Silly Connolly Subflow
 
-**File**: `node-red/silly-connolly-subannounce.json`
+**File**: `silly-connolly/silly-connolly-subannounce.json`
 
 The reusable subflow that powers all Silly Connolly announcements. Any flow can drop in this node and wire `msg.prompt` + `msg.areas` to it.
 
@@ -73,7 +73,7 @@ Defined in the "Resolve Areas → Players" function node:
 
 ## Silly Connolly Announce
 
-**File**: `node-red/silly-connolly-announce.json`
+**File**: `silly-connolly/silly-connolly-announce.json`
 
 The original standalone flow with a manual trigger. Calls Ollama directly with the system prompt inlined, saves MP3 to HA, and plays on `media_player.zigbee2mqtt`.
 
@@ -97,7 +97,7 @@ This was the first working flow and is kept as a reference/fallback. The subflow
 
 ## Silly Connolly Test
 
-**File**: `node-red/silly-connolly-test.json`
+**File**: `silly-connolly/silly-connolly-test.json`
 
 Test flow with multiple inject triggers for different rooms. Uses the Silly Connolly Announce subflow.
 

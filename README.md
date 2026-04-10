@@ -65,7 +65,7 @@ graph LR
 
 4. **Test locally**
    ```bash
-   echo "the washing machine is done" | python3 scripts/silly-connolly-tts.py
+   echo "the washing machine is done" | python3 silly-connolly/scripts/silly-connolly-tts.py
    ```
 
 ## Scripts
@@ -73,8 +73,8 @@ graph LR
 | Script | Description |
 |--------|-------------|
 | [`scripts/manage.py`](docs/scripts.md#managepy) | Manage Open WebUI models and deploy Node-RED flows |
-| [`scripts/silly-connolly-tts.py`](docs/scripts.md#silly-connolly-ttspy) | Local TTS testing — pipe text in, hear it spoken |
-| [`scripts/replace-chatbot.py`](docs/scripts.md#replace-chatbotpy) | Migration script that replaced ChatBot Announcer with Silly Connolly |
+| [`silly-connolly/scripts/silly-connolly-tts.py`](docs/scripts.md#silly-connolly-ttspy) | Local TTS testing — pipe text in, hear it spoken |
+| [`silly-connolly/scripts/replace-chatbot.py`](docs/scripts.md#replace-chatbotpy) | Migration script that replaced ChatBot Announcer with Silly Connolly |
 
 ## Node-RED Flows
 

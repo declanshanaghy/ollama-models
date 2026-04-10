@@ -68,7 +68,7 @@ For best results:
 
 2. Upload to Fish Audio:
    ```bash
-   python3 scripts/silly-connolly-tts.py --voices  # list current voices
+   python3 silly-connolly/scripts/silly-connolly-tts.py --voices  # list current voices
    ```
    Then upload via the [Fish Audio web UI](https://fish.audio).
 

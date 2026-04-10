@@ -37,7 +37,7 @@ Reads from `.env` in the repo root:
 
 ```mermaid
 flowchart TD
-    A[Read flow JSON files<br/>from node-red/]:::primary
+    A[Read flow JSON files<br/>from model dirs]:::primary
     B[Download current flows<br/>from Node-RED API]:::secondary
     C[Remove old nodes<br/>belonging to our tabs]:::primary
     D[Insert new nodes<br/>at original position]:::primary
@@ -83,17 +83,17 @@ Local TTS testing script. Reads text from stdin, sends to Fish Audio, plays back
 
 ```bash
 # Simple test
-echo "The washing machine is done" | python3 scripts/silly-connolly-tts.py
+echo "The washing machine is done" | python3 silly-connolly/scripts/silly-connolly-tts.py
 
 # Pipe from model chat
 python3 scripts/manage.py chat silly-connolly "quip about dinner" \
-  | python3 scripts/silly-connolly-tts.py
+  | python3 silly-connolly/scripts/silly-connolly-tts.py
 
 # List voices
-python3 scripts/silly-connolly-tts.py --voices
+python3 silly-connolly/scripts/silly-connolly-tts.py --voices
 
 # Show voice details
-python3 scripts/silly-connolly-tts.py --voice-info
+python3 silly-connolly/scripts/silly-connolly-tts.py --voice-info
 ```
 
 ### How It Works
@@ -149,7 +149,7 @@ Safe to re-run. It removes any existing Silly Connolly replacement nodes before 
 ### Usage
 
 ```bash
-python3 scripts/replace-chatbot.py
+python3 silly-connolly/scripts/replace-chatbot.py
 ```
 
 ### Area Mapping

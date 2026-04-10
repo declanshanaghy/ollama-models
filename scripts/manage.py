@@ -303,9 +303,9 @@ def nodered_api(cfg, method, path, data=None):
 def cmd_deploy_nodered(args):
     cfg = get_nodered_config()
     ha_server_id = os.environ.get("NODERED_HA_SERVER_ID", "")
-    flow_files = sorted(REPO_DIR.glob("node-red/*.json"))
+    flow_files = sorted(REPO_DIR.glob("*/silly-connolly-*.json"))
     if not flow_files:
-        print("No flow files found in node-red/", file=sys.stderr)
+        print("No flow files found", file=sys.stderr)
         sys.exit(1)
 
     print(f"Fetching current flows from {cfg['url']}")
