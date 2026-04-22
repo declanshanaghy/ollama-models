@@ -3,7 +3,7 @@
         "id": "silly-connolly-subflow",
         "type": "subflow",
         "name": "Silly Connolly Announce",
-        "info": "Generate a quip and announce it on speakers in specified areas.\n\nInputs:\n- msg.prompt: Text describing what to quip about\n- msg.areas: Array of area names (empty = all areas)",
+        "info": "Generate a quip and announce it on speakers in specified areas.\n\nInputs:\n- msg.prompt: Text describing what to quip about\n- msg.areas: Array of area names (empty = all areas)\n- msg.announcement: Backup message if generation fails",
         "category": "silly-connolly",
         "in": [
             {
@@ -37,7 +37,7 @@
         "type": "function",
         "z": "silly-connolly-subflow",
         "name": "Build Quip Request",
-        "func": "msg._areas = msg.areas || [];\nmsg._prompt = msg.prompt || 'something funny';\n\nmsg.url = 'http://hal-9005.lan:11434/api/chat';\nmsg.headers = { 'Content-Type': 'application/json' };\n\nconst systemPrompt = `You are Silly Connolly, a comedy chatbot inspired by the legendary Scottish comedian Billy Connolly \u2014 the Big Yin himself.\n\nYour personality:\n- You are a working-class Glaswegian storyteller with a wicked, irreverent sense of humour\n- You tell jokes, stories, and observations rooted in Scottish culture, Glasgow life, and the absurdity of everyday human existence\n- You use Scottish words and phrases naturally: \"wee\", \"aye\", \"nae bother\", \"braw\", \"dinnae\", \"heid\", \"bampot\", \"eejit\", \"blether\", \"haver\", \"numpty\", \"wheesht\", \"ya beauty\", \"pure dead brilliant\"\n- You draw on Scottish cultural touchstones: Glasgow patter, shipyard humour, Scottish drinking culture, Irn-Bru, haggis, ceilidhs, the weather, fitba\n- You find the hilarious in the mundane \u2014 filtered through a distinctly Scottish, working-class lens\n- Profanity flows naturally as authentic working-class Scottish speech, not for shock value\n\nQUIPS AND TTS MODE:\n- ONE or TWO sentences max. That's it.\n- Output ONLY the quip text. Nothing else.\n- No quotation marks. No preamble. No follow-up. No stage directions.\n- No asterisks, no parentheses, no formatting of any kind.\n- No offering alternatives or options.\n- Just the raw spoken words, ready for text-to-speech.\n\nIMPORTANT: NEVER write in phonetic spelling or try to represent a Scottish accent. Use proper Scottish words and phrases in standard spelling.`;\n\nmsg.payload = {\n    model: 'gemma4:latest',\n    messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: 'Give me a quip about the ' + msg._prompt }\n    ],\n    stream: false,\n    options: { temperature: 0.9, top_p: 0.9 }\n};\nreturn msg;",
+        "func": "msg._areas = msg.areas || [];\nmsg._prompt = msg.prompt || 'something funny';\nmsg._announcement = msg.announcement || msg._prompt;\n\nmsg.url = 'http://hal-9005.lan:11434/api/chat';\nmsg.headers = { 'Content-Type': 'application/json' };\n\nconst systemPrompt = `You are Silly Connolly, a comedy chatbot inspired by the legendary Scottish comedian Billy Connolly \u2014 the Big Yin himself.\n\nYour personality:\n- You are a working-class Glaswegian storyteller with a wicked, irreverent sense of humour\n- You tell jokes, stories, and observations rooted in Scottish culture, Glasgow life, and the absurdity of everyday human existence\n- You use Scottish words and phrases naturally: \"wee\", \"aye\", \"nae bother\", \"braw\", \"dinnae\", \"heid\", \"bampot\", \"eejit\", \"blether\", \"haver\", \"numpty\", \"wheesht\", \"ya beauty\", \"pure dead brilliant\"\n- You draw on Scottish cultural touchstones: Glasgow patter, shipyard humour, Scottish drinking culture, Irn-Bru, haggis, ceilidhs, the weather, fitba\n- You find the hilarious in the mundane \u2014 filtered through a distinctly Scottish, working-class lens\n- Profanity flows naturally as authentic working-class Scottish speech, not for shock value\n\nQUIPS AND TTS MODE:\n- ONE or TWO sentences max. That's it.\n- Output ONLY the quip text. Nothing else.\n- No quotation marks. No preamble. No follow-up. No stage directions.\n- No asterisks, no parentheses, no formatting of any kind.\n- No offering alternatives or options.\n- Just the raw spoken words, ready for text-to-speech.\n\nIMPORTANT: NEVER write in phonetic spelling or try to represent a Scottish accent. Use proper Scottish words and phrases in standard spelling.`;\n\nmsg.payload = {\n    model: 'gemma4:latest',\n    messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: 'Give me a quip about the ' + msg._prompt }\n    ],\n    stream: false,\n    options: { temperature: 0.9, top_p: 0.9 }\n};\nreturn msg;",
         "outputs": 1,
         "x": 200,
         "y": 160,
@@ -125,6 +125,21 @@
         "wires": [
             [
                 "sub-debug-tts",
+                "sub-check-tts"
+            ]
+        ]
+    },
+    {
+        "id": "sub-check-tts",
+        "type": "function",
+        "z": "silly-connolly-subflow",
+        "name": "Check TTS",
+        "func": "if (msg.statusCode !== 200 || !msg.payload || msg.payload.length < 1000) {\n    node.error('TTS failed: HTTP ' + msg.statusCode + ', size=' + (msg.payload ? msg.payload.length : 0), msg);\n    return null;\n}\nreturn msg;",
+        "outputs": 1,
+        "x": 910,
+        "y": 160,
+        "wires": [
+            [
                 "sub-stash-tts"
             ]
         ]
@@ -136,8 +151,8 @@
         "name": "Stash TTS Audio",
         "func": "msg._ttsAudio = msg.payload;\nmsg.filename = '/homeassistant/www/tts/silence-2s.mp3';\nreturn msg;",
         "outputs": 1,
-        "x": 920,
-        "y": 160,
+        "x": 160,
+        "y": 220,
         "wires": [
             [
                 "sub-read-silence"
@@ -156,7 +171,7 @@
         "sendError": false,
         "encoding": "none",
         "allProps": false,
-        "x": 170,
+        "x": 330,
         "y": 220,
         "wires": [
             [
@@ -171,7 +186,7 @@
         "name": "Concat Audio",
         "func": "msg.payload = Buffer.concat([msg._ttsAudio, msg.payload]);\ndelete msg._ttsAudio;\nnode.status({fill:'green', shape:'dot', text: msg.payload.length + ' bytes total'});\nreturn msg;",
         "outputs": 1,
-        "x": 340,
+        "x": 500,
         "y": 220,
         "wires": [
             [
@@ -206,8 +221,8 @@
         "createDir": true,
         "overwriteFile": "true",
         "encoding": "none",
-        "x": 930,
-        "y": 160,
+        "x": 650,
+        "y": 220,
         "wires": [
             [
                 "sub-resolve-areas"
@@ -219,7 +234,7 @@
         "type": "function",
         "z": "silly-connolly-subflow",
         "name": "Resolve Areas \u2192 Players",
-        "func": "const rawAreas = msg._areas || [];\nconst mediaUrl = 'http://homeassistant.lan:8123/local/tts/silly-connolly-quip.mp3';\n\n// Filter out x-prefixed areas (disabled for testing)\nconst areas = rawAreas.filter(a => !a.startsWith('x'));\n\n// Area name \u2192 entity mapping\nconst areaMap = {\n    'living room': ['media_player.zigbee2mqtt'],\n    'family room': ['media_player.family_room_tv', 'media_player.family_room_pi', 'media_player.family_room_chromecast'],\n    'front entry': ['media_player.front_doorbell_speaker'],\n    'guest bedroom': ['media_player.google_hub_office'],\n    'office': ['media_player.octopi5']\n};\n\nlet players = [];\nif (areas.length === 0 && rawAreas.length === 0) {\n    // No areas at all - announce on all\n    for (const p of Object.values(areaMap)) players.push(...p);\n} else {\n    for (const area of areas) {\n        const mapped = areaMap[area.toLowerCase()];\n        if (mapped) {\n            players.push(...mapped);\n        } else {\n            node.warn('Unknown area: ' + area);\n        }\n    }\n}\n\nplayers = [...new Set(players)];\n\nif (players.length === 0) {\n    node.error('No media players found for: ' + areas.join(', '), msg);\n    node.status({fill:'red', shape:'dot', text: 'No players'});\n    return null;\n}\n\nconst label = (areas.length === 0 && rawAreas.length === 0) ? 'ALL' : areas.join(', ');\nnode.status({fill:'green', shape:'dot', text: players.length + ' speakers in ' + label});\nnode.warn('Playing on: ' + players.join(', '));\n\nconst messages = players.map(entityId => ({\n    payload: {\n        data: {\n            media_content_id: mediaUrl,\n            media_content_type: 'music',\n            entity_id: entityId\n        }\n    }\n}));\n\nreturn [messages];",
+        "func": "const rawAreas = msg._areas || [];\nconst mediaUrl = 'http://homeassistant.lan:8123/local/tts/silly-connolly-quip.mp3';\n\n// Filter out x-prefixed areas (disabled for testing)\nconst areas = rawAreas.filter(a => !a.startsWith('x'));\n\n// Area name \u2192 entity mapping\nconst areaMap = {\n    'living room': ['media_player.zigbee2mqtt'],\n    'family room': ['media_player.family_room_pi'],\n    'office': ['media_player.google_hub_office', 'media_player.octopi5']\n};\n\nlet players = [];\nif (areas.length === 0 && rawAreas.length === 0) {\n    // No areas at all - announce on all\n    for (const p of Object.values(areaMap)) players.push(...p);\n} else {\n    for (const area of areas) {\n        const mapped = areaMap[area.toLowerCase()];\n        if (mapped) {\n            players.push(...mapped);\n        } else {\n            node.error('Unknown area: ' + area, msg);\n            return null;\n        }\n    }\n}\n\nplayers = [...new Set(players)];\n\nif (players.length === 0) {\n    node.error('No media players found for: ' + areas.join(', '), msg);\n    node.status({fill:'red', shape:'dot', text: 'No players'});\n    return null;\n}\n\nconst label = (areas.length === 0 && rawAreas.length === 0) ? 'ALL' : areas.join(', ');\nnode.status({fill:'green', shape:'dot', text: players.length + ' speakers in ' + label});\nnode.warn('Playing on: ' + players.join(', '));\n\nconst messages = players.map(entityId => ({\n    payload: {\n        data: {\n            media_content_id: mediaUrl,\n            media_content_type: 'audio/mp3',\n            entity_id: entityId\n        }\n    }\n}));\n\nreturn [messages];",
         "outputs": 1,
         "x": 220,
         "y": 280,
@@ -283,5 +298,64 @@
         "x": 830,
         "y": 280,
         "wires": []
+    },
+    {
+        "id": "sub-catch-all",
+        "type": "catch",
+        "z": "silly-connolly-subflow",
+        "name": "Catch Errors",
+        "scope": null,
+        "uncaught": false,
+        "x": 150,
+        "y": 380,
+        "wires": [
+            [
+                "sub-debug-error",
+                "sub-build-kearney"
+            ]
+        ]
+    },
+    {
+        "id": "sub-debug-error",
+        "type": "debug",
+        "z": "silly-connolly-subflow",
+        "name": "Debug: Error",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "error",
+        "statusVal": "error.message",
+        "statusType": "auto",
+        "x": 370,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "sub-build-kearney",
+        "type": "function",
+        "z": "silly-connolly-subflow",
+        "name": "Build Kearney Fallback",
+        "func": "// Determine which step failed\nvar source = (msg.error && msg.error.source) || {};\nvar failedNode = source.name || source.id || 'unknown';\nvar errorMsg = (msg.error && msg.error.message) || 'unknown error';\nvar preamble = '';\nif (failedNode.indexOf('Ollama') >= 0 || failedNode.indexOf('Quip') >= 0) {\n    preamble = 'Quip generation failed.';\n} else if (failedNode.indexOf('TTS') >= 0 || failedNode.indexOf('Fish') >= 0 || failedNode.indexOf('Check TTS') >= 0) {\n    preamble = 'Voice synthesis failed.';\n} else if (failedNode.indexOf('Save') >= 0 || failedNode.indexOf('Silence') >= 0 || failedNode.indexOf('Concat') >= 0) {\n    preamble = 'Audio save failed.';\n} else if (failedNode.indexOf('Play') >= 0 || failedNode.indexOf('Resolve') >= 0) {\n    preamble = 'Speaker playback failed.';\n} else {\n    preamble = 'Something went wrong.';\n}\n\nvar backup = msg._announcement || msg.announcement || msg._prompt || 'something funny';\nvar message = preamble + ' ' + backup;\n\n// Translate areas to snake_case for Kearney\nvar rawAreas = msg._areas || msg.areas || [];\nvar areaMap = {\n    'living room': 'living_room',\n    'family room': 'family_room',\n    'office': 'office'\n};\nvar kearneyAreas = [];\nif (rawAreas.length === 0) {\n    kearneyAreas = ['living_room', 'family_room', 'guest_bedroom', 'office'];\n} else {\n    for (var i = 0; i < rawAreas.length; i++) {\n        var a = rawAreas[i];\n        if (a.startsWith('x')) continue;\n        var mapped = areaMap[a.toLowerCase()];\n        if (mapped) kearneyAreas.push(mapped);\n    }\n    if (kearneyAreas.length === 0) {\n        kearneyAreas = ['living_room', 'family_room', 'guest_bedroom', 'office'];\n    }\n}\n\nmsg.payload = {\n    level: 'announcement',\n    areas: kearneyAreas,\n    message: message\n};\n\nvar detail = 'Silly Connolly fallback — node: ' + failedNode + ' | error: ' + errorMsg;\nnode.status({fill:'yellow', shape:'dot', text: 'Fallback: ' + failedNode});\nnode.warn(detail);\nreturn msg;",
+        "outputs": 1,
+        "x": 380,
+        "y": 380,
+        "wires": [
+            [
+                "sub-kearney"
+            ]
+        ]
+    },
+    {
+        "id": "sub-kearney",
+        "type": "subflow:4b9201c2.db019",
+        "z": "silly-connolly-subflow",
+        "name": "Kearney Notification",
+        "env": [],
+        "x": 610,
+        "y": 380,
+        "wires": [
+            []
+        ]
     }
 ]
