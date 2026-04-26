@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
-"""Generate TTS audio using the silly-connolly voice on Fish Audio.
-
-Reads text from stdin, converts to speech via Fish Audio API,
-saves to a temp file, and plays it back locally.
+"""Generate Silly Connolly TTS audio via Open WebUI + Fish Audio.
 
 Usage:
-    echo "The washing machine is done, ya numpty" | ./scripts/silly-connolly-tts.py
-    ./scripts/silly-connolly-tts.py --voices          # list & cache your voices
-    ./scripts/silly-connolly-tts.py --voice-info       # show silly-connolly voice details
+    # Generate a quip from a prompt, then TTS it
+    ./silly-connolly/scripts/silly-connolly-tts.py -p "the washing machine is done"
+
+    # Same but save to file instead of playing
+    ./silly-connolly/scripts/silly-connolly-tts.py -p "monday mornings" -o quip.mp3
+
+    # TTS raw text directly (skip LLM)
+    ./silly-connolly/scripts/silly-connolly-tts.py -r "Yer dinner's ready ya numpty"
+
+    # Pipe raw text via stdin (legacy behaviour)
+    echo "Hello there" | ./silly-connolly/scripts/silly-connolly-tts.py
+
+    # Voice management
+    ./silly-connolly/scripts/silly-connolly-tts.py --voices
+    ./silly-connolly/scripts/silly-connolly-tts.py --voice-info
 
 Environment (.env):
     FISH_AUDIO_API_KEY   - Fish Audio API key
     FISH_AUDIO_VOICE_ID  - Voice model ID (auto-detected if only one voice exists)
+    OPENWEBUI_URL        - Open WebUI base URL (default: http://hal-9005.lan:11080)
+    OPENWEBUI_EMAIL      - Login email (default: admin@localhost)
+    OPENWEBUI_PASS       - Login password (default: admin)
 """
 
 import argparse
@@ -25,9 +37,12 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_DIR = SCRIPT_DIR.parent
+REPO_DIR = SCRIPT_DIR.parent.parent
 ENV_FILE = REPO_DIR / ".env"
 CACHE_DIR = REPO_DIR / "tmp" / "fish.audio"
+
+OPENWEBUI_DEFAULT_URL = "http://hal-9005.lan:11080"
+OPENWEBUI_MODEL = "silly-connolly"
 
 
 def load_env():
@@ -37,6 +52,24 @@ def load_env():
             if line and not line.startswith("#") and "=" in line:
                 key, _, value = line.partition("=")
                 os.environ.setdefault(key.strip(), value.strip())
+
+
+def openwebui_authenticate():
+    """Authenticate with Open WebUI and return a bearer token."""
+    base_url = os.environ.get("OPENWEBUI_URL", OPENWEBUI_DEFAULT_URL).rstrip("/")
+    email = os.environ.get("OPENWEBUI_EMAIL", "admin@localhost")
+    password = os.environ.get("OPENWEBUI_PASS", "admin")
+
+    body = json.dumps({"email": email, "password": password}).encode()
+    req = Request(f"{base_url}/api/v1/auths/signin", data=body, method="POST",
+                  headers={"Content-Type": "application/json"})
+    try:
+        with urlopen(req) as resp:
+            return json.loads(resp.read())["token"]
+    except HTTPError as e:
+        err = e.read().decode()
+        print(f"Open WebUI auth error {e.code}: {err}", file=sys.stderr)
+        sys.exit(1)
 
 
 def api_get(path, api_key):
@@ -93,6 +126,44 @@ def resolve_voice_id(api_key):
     sys.exit(1)
 
 
+def generate_quip(prompt):
+    """Send a prompt to Open WebUI (silly-connolly model) and return the quip."""
+    base_url = os.environ.get("OPENWEBUI_URL", OPENWEBUI_DEFAULT_URL).rstrip("/")
+    token = openwebui_authenticate()
+
+    body = json.dumps({
+        "model": OPENWEBUI_MODEL,
+        "messages": [
+            {"role": "user", "content": f"Give me a quip about the {prompt}"},
+        ],
+    }).encode()
+
+    req = Request(f"{base_url}/api/chat/completions", data=body, method="POST",
+                  headers={
+                      "Content-Type": "application/json",
+                      "Authorization": f"Bearer {token}",
+                  })
+
+    print(f"Generating quip via {base_url} ({OPENWEBUI_MODEL})...", file=sys.stderr)
+    try:
+        with urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+    except HTTPError as e:
+        err = e.read().decode()
+        print(f"Open WebUI API error {e.code}: {err}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Open WebUI request failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    content = data["choices"][0]["message"]["content"].strip()
+    if not content:
+        print("Open WebUI returned empty response", file=sys.stderr)
+        sys.exit(1)
+
+    return content
+
+
 def tts(text, api_key, voice_id):
     url = "https://api.fish.audio/v1/tts"
     body = json.dumps({
@@ -111,7 +182,7 @@ def tts(text, api_key, voice_id):
     })
 
     try:
-        with urlopen(req) as resp:
+        with urlopen(req, timeout=15) as resp:
             return resp.read()
     except HTTPError as e:
         err = e.read().decode()
@@ -140,6 +211,12 @@ def main():
     parser = argparse.ArgumentParser(description="Silly Connolly TTS via Fish Audio")
     parser.add_argument("--voices", action="store_true", help="List and cache your voices")
     parser.add_argument("--voice-info", action="store_true", help="Show details for the configured voice")
+    parser.add_argument("-o", "--output", help="Save MP3 to this path instead of playing")
+
+    input_group = parser.add_mutually_exclusive_group()
+    input_group.add_argument("-p", "--prompt", help="Generate a quip about this topic via Open WebUI, then TTS it")
+    input_group.add_argument("-r", "--raw", help="TTS this text directly (skip LLM)")
+
     args = parser.parse_args()
 
     api_key = os.environ.get("FISH_AUDIO_API_KEY")
@@ -163,21 +240,33 @@ def main():
 
     voice_id = resolve_voice_id(api_key)
 
-    text = sys.stdin.read().strip()
-    if not text:
-        print("No text provided on stdin", file=sys.stderr)
-        sys.exit(1)
+    # Resolve text: -p (prompt via Open WebUI), -r (raw text), or stdin
+    if args.prompt:
+        text = generate_quip(args.prompt)
+        print(f"Quip: {text}", file=sys.stderr)
+    elif args.raw:
+        text = args.raw
+    else:
+        text = sys.stdin.read().strip()
+        if not text:
+            print("No text provided. Use -p, -r, or pipe text via stdin.", file=sys.stderr)
+            sys.exit(1)
 
     print(f"Generating speech for: {text}", file=sys.stderr)
     audio_data = tts(text, api_key, voice_id)
 
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-        f.write(audio_data)
-        tmp_path = f.name
+    if args.output:
+        out_path = Path(args.output)
+        out_path.write_bytes(audio_data)
+        print(f"Saved {out_path} ({len(audio_data)} bytes)", file=sys.stderr)
+    else:
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            f.write(audio_data)
+            tmp_path = f.name
 
-    print(f"Playing {tmp_path} ({len(audio_data)} bytes)", file=sys.stderr)
-    play_audio(tmp_path)
-    os.unlink(tmp_path)
+        print(f"Playing {tmp_path} ({len(audio_data)} bytes)", file=sys.stderr)
+        play_audio(tmp_path)
+        os.unlink(tmp_path)
 
 
 if __name__ == "__main__":

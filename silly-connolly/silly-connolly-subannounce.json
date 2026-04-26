@@ -56,6 +56,7 @@
         "ret": "obj",
         "paytoqs": "ignore",
         "url": "",
+        "timeout": "30000",
         "x": 350,
         "y": 160,
         "wires": [
@@ -120,6 +121,7 @@
         "ret": "bin",
         "paytoqs": "ignore",
         "url": "",
+        "timeout": "15000",
         "x": 780,
         "y": 160,
         "wires": [
@@ -234,7 +236,7 @@
         "type": "function",
         "z": "silly-connolly-subflow",
         "name": "Resolve Areas \u2192 Players",
-        "func": "const rawAreas = msg._areas || [];\nconst mediaUrl = 'http://homeassistant.lan:8123/local/tts/silly-connolly-quip.mp3';\n\n// Filter out x-prefixed areas (disabled for testing)\nconst areas = rawAreas.filter(a => !a.startsWith('x'));\n\n// Area name \u2192 entity mapping\nconst areaMap = {\n    'living room': ['media_player.zigbee2mqtt'],\n    'family room': ['media_player.family_room_pi'],\n    'office': ['media_player.google_hub_office', 'media_player.octopi5']\n};\n\nlet players = [];\nif (areas.length === 0 && rawAreas.length === 0) {\n    // No areas at all - announce on all\n    for (const p of Object.values(areaMap)) players.push(...p);\n} else {\n    for (const area of areas) {\n        const mapped = areaMap[area.toLowerCase()];\n        if (mapped) {\n            players.push(...mapped);\n        } else {\n            node.error('Unknown area: ' + area, msg);\n            return null;\n        }\n    }\n}\n\nplayers = [...new Set(players)];\n\nif (players.length === 0) {\n    node.error('No media players found for: ' + areas.join(', '), msg);\n    node.status({fill:'red', shape:'dot', text: 'No players'});\n    return null;\n}\n\nconst label = (areas.length === 0 && rawAreas.length === 0) ? 'ALL' : areas.join(', ');\nnode.status({fill:'green', shape:'dot', text: players.length + ' speakers in ' + label});\nnode.warn('Playing on: ' + players.join(', '));\n\nconst messages = players.map(entityId => ({\n    payload: {\n        data: {\n            media_content_id: mediaUrl,\n            media_content_type: 'audio/mp3',\n            entity_id: entityId\n        }\n    }\n}));\n\nreturn [messages];",
+        "func": "const rawAreas = msg._areas || [];\nconst mediaUrl = 'http://homeassistant.lan:8123/local/tts/silly-connolly-quip.mp3';\n\n// Filter out x-prefixed areas (disabled for testing)\nconst areas = rawAreas.filter(a => !a.startsWith('x'));\n\n// Area name \u2192 entity mapping\nconst areaMap = {\n    'living room': ['media_player.zigbee2mqtt'],\n    'family room': ['media_player.family_room_pi'],\n    'office': ['media_player.google_hub_office', 'media_player.octopi5']\n};\n\nlet players = [];\nif (areas.length === 0 && rawAreas.length === 0) {\n    // No areas at all - announce on all\n    for (const p of Object.values(areaMap)) players.push(...p);\n} else {\n    for (const area of areas) {\n        const mapped = areaMap[area.toLowerCase()];\n        if (mapped) {\n            players.push(...mapped);\n        } else {\n            node.error('Unknown area, skipping: ' + area);\n        }\n    }\n}\n\nplayers = [...new Set(players)];\n\nif (players.length === 0) {\n    node.error('No media players found for: ' + areas.join(', '), msg);\n    node.status({fill:'red', shape:'dot', text: 'No players'});\n    return null;\n}\n\nconst label = (areas.length === 0 && rawAreas.length === 0) ? 'ALL' : areas.join(', ');\nnode.status({fill:'green', shape:'dot', text: players.length + ' speakers in ' + label});\nnode.warn('Playing on: ' + players.join(', '));\n\nconst messages = players.map(entityId => ({\n    payload: {\n        data: {\n            media_content_id: mediaUrl,\n            media_content_type: 'audio/mp3',\n            entity_id: entityId\n        }\n    }\n}));\n\nreturn [messages];",
         "outputs": 1,
         "x": 220,
         "y": 280,

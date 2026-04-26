@@ -2,7 +2,7 @@
 
 ## Overview
 
-Silly Connolly is an end-to-end pipeline that generates comedic announcements in the style of Billy Connolly and plays them on speakers throughout the house via Home Assistant.
+Silly Connolly is an end-to-end pipeline that generates comedic announcements in the style of [Billy Connolly](https://en.wikipedia.org/wiki/Billy_Connolly) and plays them on speakers throughout the house via Home Assistant.
 
 ## Pipeline
 
@@ -103,10 +103,8 @@ The subflow resolves friendly area names to `media_player` entity IDs using a ha
 | Area | Media Players |
 |------|--------------|
 | Living Room | `media_player.zigbee2mqtt` |
-| Family Room | `media_player.family_room_tv`, `media_player.family_room_pi`, `media_player.family_room_chromecast` |
-| Front Entry | `media_player.front_doorbell_speaker` |
-| Guest Bedroom | `media_player.google_hub_office` |
-| Office | `media_player.octopi5` |
+| Family Room | `media_player.family_room_pi` |
+| Office | `media_player.google_hub_office`, `media_player.octopi5` |
 
 ### 7. Media Playback
 
